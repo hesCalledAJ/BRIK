@@ -4,8 +4,14 @@ import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -30,6 +36,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -42,7 +49,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -50,13 +56,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.lerp
 import com.alijafari.brik.main.presentation.wheel_picker_compose.WheelTimePicker
 import com.alijafari.brik.main.viewmodel.MainViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import kotlin.math.abs
 import kotlin.math.roundToInt
+
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @SuppressLint("UnusedBoxWithConstraintsScope")
@@ -110,15 +119,31 @@ fun MainScreen(
             DurationPicker(state, viewModel)
         }
 
+        val infiniteTransition = rememberInfiniteTransition()
+        val rotation by infiniteTransition.animateFloat(
+            0f, 360f, infiniteRepeatable(
+                animation = tween(20000, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            )
+        )
         Box(
             modifier = Modifier
                 .offset { IntOffset(0, state.offset.roundToInt()) }
                 .fillMaxWidth()
                 .height(shapeHeightDp)
+                .graphicsLayer {
+                    rotationZ = rotation
+                }
                 .background(
                     color = if (hasMissingPermissions) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary,
                     shape = MaterialShapes.Cookie12Sided.toShape()
-                )
+                ),
+        )
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(0, state.offset.roundToInt()) }
+                .fillMaxWidth()
+                .height(shapeHeightDp)
                 .pointerInput(isSessionActive, hasMissingPermissions) {
                     if (isSessionActive || hasMissingPermissions) return@pointerInput
                     detectVerticalDragGestures(
@@ -136,6 +161,7 @@ fun MainScreen(
                 RemainingTime(remaining, total, isSessionActive)
             }
         }
+
 
         AnimatedVisibility(
             state.offset == startAnchor && !hasMissingPermissions
@@ -280,25 +306,27 @@ class SessionGestureState(
 
     fun onDrag(delta: Float) {
         scope.launch {
-            val newOffset = offset + delta
-            _offset.snapTo(newOffset)
+            _offset.snapTo((_offset.value + delta).coerceIn(startAnchor, centerAnchor))
         }
     }
 
     fun onRelease() {
         isDragging = false
         scope.launch {
-            val distanceToCenter = Math.abs(offset - centerAnchor)
+            val distanceToCenter = abs(offset - centerAnchor)
             val snapThreshold = 300f
 
             if (distanceToCenter < snapThreshold || progress > 0.6f) {
                 _offset.animateTo(
                     centerAnchor,
-                    spring(Spring.DampingRatioLowBouncy, Spring.StiffnessLow)
+                    spring(Spring.DampingRatioHighBouncy, Spring.StiffnessLow)
                 )
                 onSessionStart()
             } else {
-                _offset.animateTo(startAnchor, spring(Spring.StiffnessMediumLow))
+                _offset.animateTo(
+                    startAnchor,
+                    spring(Spring.DampingRatioLowBouncy, Spring.StiffnessLow)
+                )
             }
         }
     }

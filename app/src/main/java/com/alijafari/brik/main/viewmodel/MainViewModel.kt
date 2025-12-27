@@ -39,7 +39,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     private val _sessionActive = mutableStateOf(false)
     val sessionActive: State<Boolean> = _sessionActive
 
-    private val _selectedDuration = mutableIntStateOf(0)
+    private val _selectedDuration = mutableIntStateOf(30*60)
     val selectedDuration: State<Int> = _selectedDuration
 
     private val _totalSeconds = MutableStateFlow(0)
