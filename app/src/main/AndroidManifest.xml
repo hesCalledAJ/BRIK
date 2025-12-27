@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -22,14 +23,10 @@
             android:exported="false"
             android:theme="@style/AppCompatTheme" />
         <activity
-            android:name=".block.presentation.BlockActivity"
-            android:exported="false"
-            android:label="@string/title_activity_block"
-            android:showOnLockScreen="true"
-            android:theme="@style/Theme.BRIK" />
-        <activity
             android:name=".main.presentation.MainActivity"
             android:exported="true"
+            android:showWhenLocked="true"
+            android:showOnLockScreen="true"
             android:theme="@style/Theme.BRIK">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
