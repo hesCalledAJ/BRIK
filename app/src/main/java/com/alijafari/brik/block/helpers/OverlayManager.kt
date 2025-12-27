@@ -13,11 +13,8 @@ import com.alijafari.brik.R
 class OverlayManager(val context: Context) {
     fun startOverlay(){
 
-        val layoutParamsType: Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val layoutParamsType: Int =
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        } else {
-            WindowManager.LayoutParams.TYPE_PHONE
-        }
 
         val params = WindowManager.LayoutParams().apply {
             width = 0

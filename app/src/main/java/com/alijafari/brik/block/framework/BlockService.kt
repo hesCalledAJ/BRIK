@@ -5,143 +5,110 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.Context
 import android.content.Intent
-import android.content.pm.ServiceInfo
 import android.os.Binder
-import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.alijafari.brik.R
-import com.alijafari.brik.block.domain.BlockSessionManager
+import com.alijafari.brik.block.domain.repository.SessionRepository
 import com.alijafari.brik.block.helpers.OverlayManager
-import com.alijafari.brik.block.presentation.BlockActivity
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import com.alijafari.brik.main.presentation.MainActivity
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
-class BlockService : Service(), BlockSessionManager {
+
+class BlockService : Service(), SessionRepository {
     companion object {
         const val INTENT_START = "start"
         const val EXTRA_DURATION_SECONDS = "duration"
         const val NOTIFICATION_ID = 6969
         const val NOTIFICATION_CHANNEL_ID = "foreground_service_channel"
-        const val TAG = "Block Service"
+        private const val CHANNEL_NAME = "Block Foreground Service"
     }
 
-    val binder = LocalBinder()
+    private val binder = LocalBinder()
 
-    inner class LocalBinder() : Binder() {
+    inner class LocalBinder : Binder() {
         fun getService(): BlockService = this@BlockService
-
     }
 
-    override fun onBind(intent: Intent?): IBinder? {
-        return binder
-    }
+    override fun onBind(intent: Intent?): IBinder = binder
 
-    var sessionDurationSeconds = 0
-        private set
-    var sessionRemainingSeconds = sessionDurationSeconds
-        private set
+    private val _totalSeconds = MutableStateFlow(0)
+    private val _remainingSeconds = MutableStateFlow(0)
+    override val totalSeconds: StateFlow<Int> = _totalSeconds
+    override val remainingSeconds: StateFlow<Int> = _remainingSeconds
 
     val sessionTimer: SessionTimerImpl = SessionTimerImpl()
-    override fun startSession() {
-        sessionTimer.start(
-            sessionDurationSeconds * 1000L
-        )
-        sessionTimer.addOnTickListener {
-            update(it)
+
+    private val notificationManager: NotificationManager
+        get() = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        intent ?: return START_NOT_STICKY
+        if (intent.action == INTENT_START) {
+            val duration = intent.getIntExtra(EXTRA_DURATION_SECONDS, 60)
+            OverlayManager(applicationContext).startOverlay()
+            startSession(duration)
+            startForeground(NOTIFICATION_ID, buildNotification())
         }
-        startBlockActivity()
+        return START_STICKY
     }
 
-    private fun startBlockActivity() {
-        val activityIntent = Intent(
-            applicationContext, BlockActivity::class.java
-        )
-        activityIntent.addFlags(
-            Intent.FLAG_ACTIVITY_NEW_TASK
-        )
-        startActivity(
-            activityIntent
-        )
-    }
+    override fun startSession(totalSeconds: Int) {
+        _totalSeconds.value = totalSeconds
+        _remainingSeconds.value = totalSeconds
 
+        sessionTimer.start(totalSeconds * 1000L)
+        sessionTimer.addOnTickListener { millis ->
+            _remainingSeconds.value = (millis / 1000).toInt()
+            notificationManager.notify(NOTIFICATION_ID, buildNotification())
+        }
+    }
 
     override fun stopSession() {
-        stopSelf()
+        sessionTimer.stop()
+        _totalSeconds.value = 0
+        _remainingSeconds.value = 0
         stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
+    override fun updateRemaining(remainingSeconds: Int) {
+
     }
 
     override fun extend(extraMillis: Long) {
         sessionTimer.extend(extraMillis)
     }
 
+    private fun buildNotification(): Notification {
+        ensureChannel()
+        val remaining = _remainingSeconds.value
+        val contentText = if (remaining > 0) "$remaining seconds remaining" else "Session inactive"
 
-    lateinit var notificationManager: NotificationManager
-
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent == null) throw NullPointerException()
-        when (intent.action) {
-            INTENT_START -> {
-                notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-                sessionDurationSeconds = intent.getIntExtra(EXTRA_DURATION_SECONDS, 60)
-                sessionRemainingSeconds = sessionDurationSeconds
-
-                OverlayManager(applicationContext).startOverlay()
-                startSession()
-            }
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("from_service", true)
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID,
-                getServiceNotification(),
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MANIFEST
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, getServiceNotification())
-        }
-        return super.onStartCommand(intent, flags, startId)
+        val flags =
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        val pending = PendingIntent.getActivity(this, 0, intent, flags)
+
+        return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle("Blocking session")
+            .setContentText(contentText)
+            .setContentIntent(pending)
+            .setOngoing(true)
+            .setSilent(true)
+            .build()
     }
 
-    private fun update(remainingMillis: Long) {
-        sessionRemainingSeconds = (remainingMillis / 1000).toInt()
-        notificationManager.notify(
-            NOTIFICATION_ID, getServiceNotification()
-        )
-    }
-
-    private fun getServiceNotification(): Notification = getNotificationBuilder()
-        .setSmallIcon(R.drawable.ic_launcher_foreground)
-        .setContentTitle("Title")
-        .setContentText("$sessionRemainingSeconds seconds remaining")
-        .setSilent(true)
-        .build()
-
-
-    private fun getNotificationBuilder(): NotificationCompat.Builder {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            notificationManager.buildChannel()
-            NotificationCompat.Builder(applicationContext, NOTIFICATION_CHANNEL_ID)
-        } else {
-            NotificationCompat.Builder(applicationContext)
-        }
-    }
-
-
-
-    private fun NotificationManager.buildChannel(channelId : String = NOTIFICATION_CHANNEL_ID) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = "Block Foreground Service"
-            val descriptionText = "Essential channel for managing the blocking service"
-            val importance = NotificationManager.IMPORTANCE_HIGH
-            val channel = NotificationChannel(channelId, name, importance).apply {
-                description = descriptionText
-            }
-            createNotificationChannel(channel)
-        }
+    private fun ensureChannel() {
+        val channel = NotificationChannel(
+            NOTIFICATION_CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_LOW
+        ).apply { description = "Essential channel for blocking session" }
+        notificationManager.createNotificationChannel(channel)
     }
 }
