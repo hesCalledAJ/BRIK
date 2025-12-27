@@ -36,7 +36,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -56,7 +55,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.util.lerp
 import com.alijafari.brik.main.presentation.wheel_picker_compose.WheelTimePicker
 import com.alijafari.brik.main.viewmodel.MainViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -104,7 +102,13 @@ fun MainScreen(
                 scope = scope,
                 startAnchor = startAnchor,
                 centerAnchor = centerAnchor,
-                onSessionStart = { viewModel.sessionStart() }
+                onSessionStart = {
+                    if (viewModel.selectedDuration.value != 0){
+                        viewModel.sessionStart()
+                        true
+                    }
+                    else false
+                }
             )
         }
 
@@ -231,9 +235,9 @@ private fun BoxWithConstraintsScope.DurationPicker(
             maxItemsInEachRow = 4
         ) {
             val shortcuts = if (showAllShortcuts) {
-                listOf(5, 50, 60, 120, 150, 240)
+                listOf(15, 25, 45, 60, 90, 120)
             } else {
-                listOf(5, 15, 60)
+                listOf(25, 45, 60)
             }
 
             shortcuts.forEach { mins ->
@@ -293,7 +297,7 @@ class SessionGestureState(
     private val scope: CoroutineScope,
     private val startAnchor: Float,
     private val centerAnchor: Float,
-    private val onSessionStart: () -> Unit,
+    private val onSessionStart: () -> Boolean,
 ) {
     private val _offset = Animatable(startAnchor)
     val offset: Float get() = _offset.value
@@ -313,24 +317,34 @@ class SessionGestureState(
     fun onRelease() {
         isDragging = false
         scope.launch {
+
             val distanceToCenter = abs(offset - centerAnchor)
             val snapThreshold = 300f
+            val shouldStart = distanceToCenter < snapThreshold || progress > 0.6f
 
-            if (distanceToCenter < snapThreshold || progress > 0.6f) {
-                _offset.animateTo(
-                    centerAnchor,
-                    spring(Spring.DampingRatioHighBouncy, Spring.StiffnessLow)
-                )
-                onSessionStart()
+            if (shouldStart) {
+                val success = onSessionStart()
+                if (success) {
+                    _offset.animateTo(
+                        centerAnchor,
+                        spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow)
+                    )
+                } else {
+                    _offset.animateTo(
+                        startAnchor,
+                        spring(Spring.DampingRatioLowBouncy, Spring.StiffnessMediumLow)
+                    )
+                }
             } else {
                 _offset.animateTo(
                     startAnchor,
-                    spring(Spring.DampingRatioLowBouncy, Spring.StiffnessLow)
+                    spring(Spring.DampingRatioLowBouncy, Spring.StiffnessMediumLow)
                 )
             }
         }
     }
 }
+
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -343,7 +357,11 @@ fun RemainingTime(
         val h = remainingSeconds / 3600
         val m = (remainingSeconds % 3600) / 60
         val s = remainingSeconds % 60
-        "%02d:%02d:%02d".format(h, m, s)
+        if (h > 0) {
+            "%02d:%02d:%02d".format(h, m, s)
+        } else {
+            "%02d:%02d".format(m, s)
+        }
     }
 
     val totalFormatted = remember(totalSeconds) {
