@@ -48,6 +48,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     private val _remainingSeconds = MutableStateFlow(0)
     val remainingSeconds: StateFlow<Int> = _remainingSeconds
 
+    private var activeJob: Job? = null
     private var totalJob: Job? = null
     private var remainingJob: Job? = null
 
@@ -65,8 +66,14 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
 
     fun bindSessionRepository(repo: SessionRepository) {
         totalJob?.cancel()
+        activeJob?.cancel()
         remainingJob?.cancel()
 
+        activeJob = viewModelScope.launch {
+            repo.isSessionActive.collect {
+                _sessionActive.value = it
+            }
+        }
         totalJob = viewModelScope.launch {
             repo.totalSeconds.collect {
                 _totalSeconds.value = it

@@ -6,6 +6,7 @@ interface SessionRepository {
 
     val totalSeconds: StateFlow<Int>
     val remainingSeconds: StateFlow<Int>
+    val isSessionActive: StateFlow<Boolean>
 
     fun startSession(totalSeconds: Int)
     fun stopSession()

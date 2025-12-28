@@ -29,9 +29,11 @@ class BlockService : Service(), SessionRepository {
 
     override fun onBind(intent: Intent?): IBinder = binder
 
+    private val _isSessionActive = MutableStateFlow(false)
     private val _totalSeconds = MutableStateFlow(0)
     private val _remainingSeconds = MutableStateFlow(0)
     override val totalSeconds: StateFlow<Int> = _totalSeconds
+    override val isSessionActive: StateFlow<Boolean> = _isSessionActive
     override val remainingSeconds: StateFlow<Int> = _remainingSeconds
 
     val sessionTimer: SessionTimerImpl = SessionTimerImpl()
@@ -52,6 +54,7 @@ class BlockService : Service(), SessionRepository {
 
     override fun startSession(totalSeconds: Int) {
         _totalSeconds.value = totalSeconds
+        _isSessionActive.value = true
         _remainingSeconds.value = totalSeconds
 
         sessionTimer.start(totalSeconds * 1000L)
@@ -64,6 +67,7 @@ class BlockService : Service(), SessionRepository {
 
     override fun stopSession() {
         sessionTimer.stop()
+        _isSessionActive.value = false
         _totalSeconds.value = 0
         _remainingSeconds.value = 0
         stopForeground(STOP_FOREGROUND_REMOVE)

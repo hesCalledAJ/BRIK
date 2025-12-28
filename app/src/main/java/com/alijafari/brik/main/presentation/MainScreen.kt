@@ -36,6 +36,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -102,6 +103,7 @@ fun MainScreen(
                 scope = scope,
                 startAnchor = startAnchor,
                 centerAnchor = centerAnchor,
+                initialOffset = if (isSessionActive) centerAnchor else startAnchor,
                 onSessionStart = {
                     if (viewModel.selectedDuration.value != 0){
                         viewModel.sessionStart()
@@ -111,7 +113,13 @@ fun MainScreen(
                 }
             )
         }
-
+        LaunchedEffect(isSessionActive) {
+            if (isSessionActive) {
+                state.snapToCenter()
+            } else {
+                state.snapToStart()
+            }
+        }
         if (hasMissingPermissions) {
             PermissionCarousel(
                 requirements = missingPermissions,
@@ -297,9 +305,10 @@ class SessionGestureState(
     private val scope: CoroutineScope,
     private val startAnchor: Float,
     private val centerAnchor: Float,
+    initialOffset : Float,
     private val onSessionStart: () -> Boolean,
 ) {
-    private val _offset = Animatable(startAnchor)
+    private val _offset = Animatable(initialOffset)
     val offset: Float get() = _offset.value
 
     var isDragging by mutableStateOf(false)
@@ -313,7 +322,24 @@ class SessionGestureState(
             _offset.snapTo((_offset.value + delta).coerceIn(startAnchor, centerAnchor))
         }
     }
+    fun snapToCenter() {
+        if (_offset.value == centerAnchor) return
+        scope.launch {
+            _offset.animateTo(
+                centerAnchor,
+                spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow)
+            )
+        }
+    }
 
+    fun snapToStart() {
+        scope.launch {
+            _offset.animateTo(
+                startAnchor,
+                spring(Spring.DampingRatioLowBouncy, Spring.StiffnessMediumLow)
+            )
+        }
+    }
     fun onRelease() {
         isDragging = false
         scope.launch {
@@ -324,22 +350,11 @@ class SessionGestureState(
 
             if (shouldStart) {
                 val success = onSessionStart()
-                if (success) {
-                    _offset.animateTo(
-                        centerAnchor,
-                        spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow)
-                    )
-                } else {
-                    _offset.animateTo(
-                        startAnchor,
-                        spring(Spring.DampingRatioLowBouncy, Spring.StiffnessMediumLow)
-                    )
+                if (!success) {
+                    snapToStart()
                 }
             } else {
-                _offset.animateTo(
-                    startAnchor,
-                    spring(Spring.DampingRatioLowBouncy, Spring.StiffnessMediumLow)
-                )
+                snapToStart()
             }
         }
     }
