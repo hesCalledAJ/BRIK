@@ -13,6 +13,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -21,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.core.net.toUri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.alijafari.brik.BRIK
 import com.alijafari.brik.R
 import com.alijafari.brik.block.domain.repository.SessionRepository
 import com.alijafari.brik.block.framework.AdminManagerReceiver
@@ -28,13 +30,15 @@ import com.alijafari.brik.block.framework.BlockService
 import com.alijafari.brik.block.framework.BlockService.Companion.EXTRA_DURATION_SECONDS
 import com.alijafari.brik.block.framework.BlockService.Companion.INTENT_START
 import com.alijafari.brik.main.domain.model.PermissionRequirement
+import com.alijafari.brik.utils.isMiUi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 
-class MainViewModel(private val app: Application) : AndroidViewModel(app) {
+class MainViewModel(private val app: BRIK) : AndroidViewModel(app) {
 
     private val _sessionActive = mutableStateOf(false)
     val sessionActive: State<Boolean> = _sessionActive
@@ -101,6 +105,44 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     @SuppressLint("BatteryLife")
     fun refreshPermissions(context: Activity) {
         val list = mutableListOf<PermissionRequirement>()
+
+        viewModelScope.launch {
+            if (isMiUi().not()) return@launch
+            if(!app.preferencesRepository.readMiuiAutoStartWarned().first()){
+                list.add(
+                    PermissionRequirement(
+                        "Auto Start",
+                        "Needed to resume session on device reboot.",
+                        R.drawable.ic_layer,
+                        false
+                    ) {
+                        viewModelScope.launch {
+                            app.preferencesRepository.saveMiuiAutoStartWarned(
+                                true
+                            )
+                        }
+                        Toast.makeText(context, "please grant Auto Start permission", Toast.LENGTH_SHORT).show()
+                        try {
+                            val intent =Intent().apply { component = ComponentName(
+                                "com.miui.securitycenter",
+                                "com.miui.permcenter.autostart.AutoStartManagementActivity")
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            context.startActivity(intent)
+                        }catch (_: Exception){
+                            context.startActivity(
+                                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                    data = Uri.fromParts(
+                                        "package" , context.packageName,null
+                                    )
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                            )
+                        }
+                    })
+            }
+        }
+
         if (!Settings.canDrawOverlays(context)) {
             list.add(
                 PermissionRequirement(

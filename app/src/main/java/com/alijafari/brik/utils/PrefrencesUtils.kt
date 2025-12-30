@@ -15,6 +15,8 @@ class PreferencesRepository(
     private object PreferencesKeys {
         val SESSION_ENDTIME_MILLIS =
             longPreferencesKey("session_endtime")
+        val MIUI_AUTOSTART_WARNED =
+            booleanPreferencesKey("miui_autostart_warned")
     }
 
     suspend fun saveSessionEndtime(endTimeMillis: Long) {
@@ -22,7 +24,15 @@ class PreferencesRepository(
             it[PreferencesKeys.SESSION_ENDTIME_MILLIS] = endTimeMillis
         }
     }
-
+    suspend fun saveMiuiAutoStartWarned(warned : Boolean) {
+        context.dataStore.edit {
+            it[PreferencesKeys.MIUI_AUTOSTART_WARNED] = warned
+        }
+    }
+    fun readMiuiAutoStartWarned(): Flow<Boolean> =
+        context.dataStore.data.map {
+            it[PreferencesKeys.MIUI_AUTOSTART_WARNED] ?: false
+        }
     fun readLastSessionEndTime(): Flow<Long> =
         context.dataStore.data.map {
             it[PreferencesKeys.SESSION_ENDTIME_MILLIS] ?: 0L

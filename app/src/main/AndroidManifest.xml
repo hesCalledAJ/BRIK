@@ -21,10 +21,6 @@
         android:name=".BRIK"
         android:theme="@style/Theme.BRIK">
         <activity
-            android:name=".main.presentation.PermissionCheckActivity"
-            android:exported="false"
-            android:theme="@style/AppCompatTheme" />
-        <activity
             android:name=".main.presentation.MainActivity"
             android:exported="true"
             android:showWhenLocked="true"

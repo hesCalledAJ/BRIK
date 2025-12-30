@@ -1,32 +1,33 @@
 package com.alijafari.brik.utils
 
-import android.app.admin.DevicePolicyManager
-import android.content.ComponentName
-import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
-import android.provider.Settings
-import androidx.core.content.ContextCompat
-import com.alijafari.brik.block.framework.AdminManagerReceiver
+import android.text.TextUtils
+import java.io.BufferedReader
+import java.io.IOException
+import java.io.InputStreamReader
 
-object PermissionUtils {
-    fun needsPermissionScreen(context: Context): Boolean {
-        // Overlay
-        if (!Settings.canDrawOverlays(context)) return true
 
-        // Device Admin
-        val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-        val comp = ComponentName(context, AdminManagerReceiver::class.java)
-        if (!dpm.isAdminActive(comp)) return true
+fun isMiUi(): Boolean {
+    return !TextUtils.isEmpty(getSystemProperty("ro.miui.ui.version.name"))
+}
 
-        // Notifications (Android 13+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val granted = ContextCompat.checkSelfPermission(
-                context,
-                android.Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
-            if (!granted) return true
+fun getSystemProperty(propName: String?): String? {
+    var line: String?
+    var input: BufferedReader? = null
+    try {
+        val p = Runtime.getRuntime().exec("getprop " + propName)
+        input = BufferedReader(InputStreamReader(p.getInputStream()), 1024)
+        line = input.readLine()
+        input.close()
+    } catch (ex: IOException) {
+        return null
+    } finally {
+        if (input != null) {
+            try {
+                input.close()
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
         }
-        return false
     }
+    return line
 }
