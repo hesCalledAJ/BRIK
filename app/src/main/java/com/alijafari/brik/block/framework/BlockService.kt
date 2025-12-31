@@ -7,6 +7,7 @@ import android.os.IBinder
 import com.alijafari.brik.BRIK
 import com.alijafari.brik.block.domain.repository.SessionRepository
 import com.alijafari.brik.block.helpers.OverlayManager
+import com.alijafari.brik.main.presentation.MainActivity
 import com.alijafari.brik.utils.PreferencesRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -55,6 +56,11 @@ class BlockService : Service(), SessionRepository {
             val duration = intent.getIntExtra(EXTRA_DURATION_SECONDS, 60)
             OverlayManager(applicationContext).startOverlay()
             startSession(duration)
+            startActivity(
+                Intent(applicationContext, MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            )
             startForeground(
                 NotificationHelper.NOTIFICATION_ID,
                 notificationHelper.buildNotification(_remainingSeconds.value, _totalSeconds.value)

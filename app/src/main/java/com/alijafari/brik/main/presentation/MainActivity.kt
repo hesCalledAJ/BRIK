@@ -2,7 +2,6 @@ package com.alijafari.brik.main.presentation
 
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.net.Uri
@@ -13,19 +12,18 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.net.toUri
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.alijafari.brik.block.framework.AdminManagerReceiver
 import com.alijafari.brik.block.framework.BlockService
 import com.alijafari.brik.main.viewmodel.MainViewModel
 import com.alijafari.brik.ui.theme.BRIKTheme
 import com.alijafari.brik.utils.PermissionEvent
 import com.alijafari.brik.utils.PermissionType
 import kotlinx.coroutines.launch
-import androidx.core.net.toUri
 
 class MainActivity : ComponentActivity() {
 
@@ -61,7 +59,8 @@ class MainActivity : ComponentActivity() {
                 viewModel.permissionEvent.collect { event ->
                     when (event) {
                         is PermissionEvent.ShowToast ->
-                            Toast.makeText(this@MainActivity, event.message, Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@MainActivity, event.message, Toast.LENGTH_SHORT)
+                                .show()
 
                         is PermissionEvent.LaunchIntent ->
                             handlePermissionIntent(event.type)
@@ -109,7 +108,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         super.onPause()
-        if (viewModel.sessionActive.value){
+        if (viewModel.sessionActive.value) {
             startActivity(
                 Intent(
                     applicationContext, MainActivity::class.java
@@ -119,12 +118,16 @@ class MainActivity : ComponentActivity() {
             dpm.lockNow()
         }
     }
+
     private fun handlePermissionIntent(type: PermissionType) {
         val intent = when (type) {
             PermissionType.MIUI_AUTO_START -> {
                 try {
                     Intent().apply {
-                        component = ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")
+                        component = ComponentName(
+                            "com.miui.securitycenter",
+                            "com.miui.permcenter.autostart.AutoStartManagementActivity"
+                        )
                     }
                 } catch (_: Exception) {
                     Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -132,13 +135,22 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+
             PermissionType.OVERLAY ->
                 Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, "package:$packageName".toUri())
 
-            PermissionType.DEVICE_ADMIN ->
-                Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
-                    putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, ComponentName(this@MainActivity, AdminManagerReceiver::class.java))
+            PermissionType.DEVICE_ADMIN -> {
+
+                Intent().apply {
+                    setComponent(
+                        ComponentName(
+                            "com.android.settings",
+                            "com.android.settings.DeviceAdminSettings"
+                        )
+                    )
                 }
+
+            }
 
             PermissionType.NOTIFICATIONS ->
                 Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {

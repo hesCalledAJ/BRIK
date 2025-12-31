@@ -1,6 +1,7 @@
 package com.alijafari.brik.main.viewmodel
 
 import android.Manifest
+import android.app.Application
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
@@ -35,7 +36,9 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 
-class MainViewModel(private val app: BRIK) : AndroidViewModel(app) {
+class MainViewModel(private val context: Application) : AndroidViewModel(context) {
+
+    private val app = context as BRIK
 
     private val _sessionActive = mutableStateOf(false)
     val sessionActive: State<Boolean> = _sessionActive
@@ -95,7 +98,6 @@ class MainViewModel(private val app: BRIK) : AndroidViewModel(app) {
         _totalSeconds.value = 0
         _remainingSeconds.value = 0
     }
-
 
     private val _permissionEvent = Channel<PermissionEvent>()
     val permissionEvent = _permissionEvent.receiveAsFlow()

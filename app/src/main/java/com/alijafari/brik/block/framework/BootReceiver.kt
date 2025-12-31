@@ -12,10 +12,11 @@ class BootReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent?) {
         if (intent?.action != Intent.ACTION_BOOT_COMPLETED) return
-
-        val repo = (context.applicationContext as BRIK).preferencesRepository
-        Log.e("TAG", "onReceive: Boot received", )
+        Log.e("TAG", "onReceive: Boot received ${context.applicationContext.packageName}", )
         CoroutineScope(Dispatchers.IO).launch {
+            delay(1000)
+            val app = context.applicationContext as? BRIK ?: return@launch
+            val repo = app.preferencesRepository
             val endTime = repo.readLastSessionEndTime().first()
             val now = System.currentTimeMillis()
 

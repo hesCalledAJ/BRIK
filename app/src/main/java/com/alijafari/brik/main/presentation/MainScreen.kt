@@ -1,6 +1,7 @@
 package com.alijafari.brik.main.presentation
 
 import android.annotation.SuppressLint
+import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -115,7 +116,9 @@ fun MainScreen(
         }
         LaunchedEffect(isSessionActive) {
             if (isSessionActive) {
-                state.snapToCenter()
+                if (state.offset != centerAnchor){
+                    state.snapToCenter()
+                }
             } else {
                 state.snapToStart()
             }
@@ -323,7 +326,6 @@ class SessionGestureState(
         }
     }
     fun snapToCenter() {
-        if (_offset.value == centerAnchor) return
         scope.launch {
             _offset.animateTo(
                 centerAnchor,
