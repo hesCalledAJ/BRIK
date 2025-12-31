@@ -5,16 +5,27 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.net.Uri
 import android.os.Bundle
 import android.os.IBinder
+import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import com.alijafari.brik.block.framework.AdminManagerReceiver
 import com.alijafari.brik.block.framework.BlockService
 import com.alijafari.brik.main.viewmodel.MainViewModel
 import com.alijafari.brik.ui.theme.BRIKTheme
+import com.alijafari.brik.utils.PermissionEvent
+import com.alijafari.brik.utils.PermissionType
+import kotlinx.coroutines.launch
+import androidx.core.net.toUri
 
 class MainActivity : ComponentActivity() {
 
@@ -44,6 +55,20 @@ class MainActivity : ComponentActivity() {
             this, ViewModelProvider.AndroidViewModelFactory.getInstance(application)
         )[MainViewModel::class.java]
 
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.permissionEvent.collect { event ->
+                    when (event) {
+                        is PermissionEvent.ShowToast ->
+                            Toast.makeText(this@MainActivity, event.message, Toast.LENGTH_SHORT).show()
+
+                        is PermissionEvent.LaunchIntent ->
+                            handlePermissionIntent(event.type)
+                    }
+                }
+            }
+        }
         enableEdgeToEdge()
 
         WindowInsetsControllerCompat(window, window.decorView).apply {
@@ -68,7 +93,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        viewModel.refreshPermissions(this)
+        viewModel.refreshPermissions()
     }
 
     override fun onStop() {
@@ -93,5 +118,40 @@ class MainActivity : ComponentActivity() {
             val dpm = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
             dpm.lockNow()
         }
+    }
+    private fun handlePermissionIntent(type: PermissionType) {
+        val intent = when (type) {
+            PermissionType.MIUI_AUTO_START -> {
+                try {
+                    Intent().apply {
+                        component = ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")
+                    }
+                } catch (_: Exception) {
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.fromParts("package", packageName, null)
+                    }
+                }
+            }
+            PermissionType.OVERLAY ->
+                Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, "package:$packageName".toUri())
+
+            PermissionType.DEVICE_ADMIN ->
+                Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+                    putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, ComponentName(this@MainActivity, AdminManagerReceiver::class.java))
+                }
+
+            PermissionType.NOTIFICATIONS ->
+                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                    putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                }
+
+            PermissionType.BATTERY_OPTIMIZATION ->
+                Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = "package:$packageName".toUri()
+                }
+        }
+
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(intent)
     }
 }
