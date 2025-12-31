@@ -12,6 +12,9 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.core.net.toUri
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
@@ -75,10 +78,13 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            BRIKTheme {
-                MainScreen(
-                    viewModel
-                )
+
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                BRIKTheme {
+                    MainScreen(
+                        viewModel
+                    )
+                }
             }
         }
     }
