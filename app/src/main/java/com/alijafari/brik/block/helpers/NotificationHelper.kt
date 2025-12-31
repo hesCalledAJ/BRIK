@@ -54,7 +54,6 @@ class NotificationHelper(private val context: Context) {
             .setOngoing(true)
             .setSilent(true)
             .setOnlyAlertOnce(true)
-            .setFullScreenIntent(pending,true)
             .setShowWhen(false)
             .build()
     }

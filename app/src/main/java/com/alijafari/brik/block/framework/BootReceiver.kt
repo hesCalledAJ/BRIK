@@ -31,6 +31,10 @@ class BootReceiver : BroadcastReceiver() {
                         BlockService.EXTRA_DURATION_SECONDS,
                         remainingSeconds
                     )
+                    putExtra(
+                        BlockService.EXTRA_FROM_BOOT_RECEIVER,
+                        true
+                    )
                 }
 
                 context.startForegroundService(serviceIntent)

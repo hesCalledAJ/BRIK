@@ -21,6 +21,7 @@ class BlockService : Service(), SessionRepository {
     companion object {
         const val INTENT_START = "start"
         const val EXTRA_DURATION_SECONDS = "duration"
+        const val EXTRA_FROM_BOOT_RECEIVER = "from_boot_receiver"
     }
 
     private val binder = LocalBinder()
@@ -56,7 +57,7 @@ class BlockService : Service(), SessionRepository {
             val duration = intent.getIntExtra(EXTRA_DURATION_SECONDS, 60)
             OverlayManager(applicationContext).startOverlay()
             startSession(duration)
-            startActivity(
+            if (intent.getBooleanExtra(EXTRA_FROM_BOOT_RECEIVER,false)) startActivity(
                 Intent(applicationContext, MainActivity::class.java).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
@@ -91,7 +92,6 @@ class BlockService : Service(), SessionRepository {
     }
 
     override fun stopSession() {
-        sessionTimer.stop()
         _isSessionActive.value = false
         _totalSeconds.value = 0
         _remainingSeconds.value = 0
@@ -100,6 +100,7 @@ class BlockService : Service(), SessionRepository {
         }
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
+        sessionTimer.stop()
     }
 
     override fun updateRemaining(remainingSeconds: Int) {}

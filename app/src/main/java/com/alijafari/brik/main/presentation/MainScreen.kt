@@ -13,6 +13,9 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -80,7 +83,7 @@ fun MainScreen(
 
     val missingPermissions = viewModel.missingPermissions
 
-    val isSessionActive = total > 0
+    val isSessionActive by viewModel.sessionActive
     val hasMissingPermissions = missingPermissions.isNotEmpty()
 
 
@@ -115,7 +118,9 @@ fun MainScreen(
             )
         }
         LaunchedEffect(isSessionActive) {
+            Log.e("OFFSET", "session changed : $isSessionActive", )
             if (isSessionActive) {
+                Log.e("OFFSET", "MainScreen: ${state.offset} and not $centerAnchor", )
                 if (state.offset != centerAnchor){
                     state.snapToCenter()
                 }
@@ -386,7 +391,14 @@ fun RemainingTime(
         val m = (totalSeconds % 3600) / 60
         "%02d:%02d".format(h, m)
     }
-    AnimatedContent(isSessionActive) {
+    AnimatedContent(
+        targetState = isSessionActive,
+        label = "RemainingTimeContent",
+        transitionSpec = {
+            fadeIn(animationSpec = tween(400)) togetherWith
+                    fadeOut(animationSpec = tween(400))
+        }
+    ){
         if (it) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
